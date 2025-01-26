@@ -6,7 +6,10 @@
     <!-- Include Fluent UI2 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fluentui/web-components@latest/dist/fluentui-web-components.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fluentui/web-components@latest/dist/fluentui-web-components-icons.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+
     <style>
+
         /* Reset default margins and paddings */
         * {
             box-sizing: border-box;
@@ -16,9 +19,11 @@
 
         body {
             display: flex;
+            flex-direction: row;
             height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f3f2f1;
+            overflow: hidden;
         }
 
         /* Sidebar Styles */
@@ -30,12 +35,21 @@
             flex-direction: column;
             padding: 1rem;
             overflow-y: auto;
+            transition: transform 0.3s ease-in-out;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .sidebar.hidden {
+            transform: translateX(-100%); /* Slide sidebar out of view */
+            position: absolute;
         }
 
         .sidebar h2 {
             margin-bottom: 1rem;
             color: #323130;
             text-align: center;
+            font-size: 20px;
         }
 
         .month-list {
@@ -49,11 +63,12 @@
             margin-bottom: 0.5rem;
             border-radius: 4px;
             cursor: pointer;
+            font-size: 14px;
             transition: background-color 0.3s;
         }
 
         .month-list li:hover, .month-list li.active {
-            background-color: #A1C6EA;
+            background-color: #C6A1EA;
             color: white;
         }
 
@@ -62,6 +77,11 @@
             flex-grow: 1;
             padding: 2rem;
             overflow-y: auto;
+            transition: margin-left 0.3s ease-in-out;
+        }
+
+        .main-content.expanded {
+            margin-left: 0; /* Full width when sidebar is hidden */
         }
 
         .tables-container {
@@ -76,25 +96,31 @@
             padding: 1rem;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            flex-grow: 1;
+            flex: 1 1 30%; /* Default proportion */
+            transition: flex-basis 0.3s ease-in-out;
+        }
+
+        .table-section.full-width {
+            flex: 1 1 33%; /* Expand when sidebar is retracted */
         }
 
         .table-section h3 {
             margin-bottom: 1rem;
             color: #323130;
             text-align: center;
+            font-size: 16px;
         }
 
         .commit-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr); /* 5 squares per row */
+            grid-template-columns: repeat(5, 1fr);
             gap: 5px;
         }
 
         .commit-square {
             width: 100%;
             padding-bottom: 100%; /* Maintain square aspect ratio */
-            position: relative; /* Allow child positioning */
+            position: relative;
             background-color: white;
             border: 1px solid #e1dfdd;
             border-radius: 3px;
@@ -117,14 +143,91 @@
 
         /* Send Button Styles */
         .send-button-container {
-            margin-top: 2rem;
             text-align: center;
         }
 
         .send-button {
-            width: 150px;
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #0078D4;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        .send-button:hover {
+            background-color: #005A9E;
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .hamburger-menu {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed; /* Keep the icon always visible */
+            top: 1rem;
+            left: 1rem;
+            width: 40px;
+            height: 40px;
+            background-color: #0078D4;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 20;
+            transition: transform 0.3s ease-in-out, background-color 0.3s ease-in-out;
+        }
+
+        .hamburger-menu:hover {
+            background-color: #005A9E;
+            transform: scale(1.1); /* Subtle hover effect */
+        }
+
+        .hamburger-menu i {
+            font-size: 20px;
+            color: white;
+        }
+
+        /* Media Query for Small Screens */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                height: 100%;
+                z-index: 10;
+            }
+
+            .hamburger-menu {
+                display: block;
+            }
+
+            .tables-container {
+                justify-content: center;
+                gap: 1rem;
+            }
+        }
+
+        .table-section.longer {
+            flex: 1 1 100%; /* Tables take full width */
+            height: auto; /* Allow dynamic height adjustment */
+        }
+
+        .commit-grid.three-squares-row {
+            grid-template-columns: repeat(3, 1fr); /* 3 squares per row */
+        }
+
+        /* Smooth transition for grid adjustments */
+        .commit-grid {
+            transition: grid-template-columns 0.3s ease-in-out;
         }
     </style>
+
+
+
 </head>
 <body>
 
@@ -382,6 +485,33 @@
 
         sendButton.addEventListener('click', sendData);
     });
+
+    const sidebar = document.querySelector('.sidebar');
+    const hamburgerMenu = document.createElement('button');
+    const mainContent = document.querySelector('.main-content');
+    const tableSections = document.querySelectorAll('.table-section');
+    const grids = document.querySelectorAll('.commit-grid');
+
+    // Create the Hamburger Button
+    hamburgerMenu.classList.add('hamburger-menu');
+    hamburgerMenu.innerHTML = `<i class="fas fa-bars"></i>`; // Font Awesome "bars" icon
+    document.body.appendChild(hamburgerMenu);
+
+    // Toggle Sidebar Visibility
+    hamburgerMenu.addEventListener('click', () => {
+        const isHidden = sidebar.classList.toggle('hidden');
+        mainContent.classList.toggle('expanded', isHidden);
+
+        // Dynamically adjust table widths and grid layout
+        tableSections.forEach((table) => {
+            table.classList.toggle('longer', isHidden); // Make tables longer
+        });
+        grids.forEach((grid) => {
+            grid.classList.toggle('three-squares-row', isHidden); // Adjust to 3 squares per row
+        });
+    });
+
+
 </script>
 </body>
 </html>
