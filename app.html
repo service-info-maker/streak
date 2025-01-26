@@ -332,9 +332,25 @@
         let currentColor = square.getAttribute('data-color') || 'white';
         let currentIndex = colorOrder.indexOf(currentColor);
         let nextIndex = (currentIndex + 1) % colorOrder.length;
+
+        // Update the square's color
         square.style.backgroundColor = colorOrder[nextIndex];
         square.setAttribute('data-color', colorOrder[nextIndex]);
+
+        // Update the corresponding data array
+        const section = square.getAttribute('data-section'); // 'food', 'sport', or 'addiction'
+        const dayIndex = square.getAttribute('data-day'); // Index of the square in the grid
+
+        let targetArray;
+        if (section === 'food') targetArray = foodData;
+        else if (section === 'sport') targetArray = sportData;
+        else if (section === 'addiction') targetArray = addictionData;
+
+        if (targetArray) {
+            targetArray[dayIndex] = nextIndex; // Update the corresponding array with the new color index
+        }
     }
+
 
     function createSquares(container, days, section) {
         container.innerHTML = ''; // Clear existing squares
@@ -431,6 +447,8 @@
                 },
                 body: JSON.stringify(payload)
             });
+
+            console.log(payload)
 
             if (!response.ok) throw new Error('Failed to send data.');
 
