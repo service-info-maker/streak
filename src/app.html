@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>App Dashboard</title>
+    <!-- Include Fluent UI2 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fluentui/web-components@latest/dist/fluentui-web-components.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fluentui/web-components@latest/dist/fluentui-web-components-icons.min.css">
+    <style>
+        /* Reset default margins and paddings */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f3f2f1;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 250px;
+            background-color: #ffffff;
+            border-right: 1px solid #e1dfdd;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            margin-bottom: 1rem;
+            color: #323130;
+            text-align: center;
+        }
+
+        .month-list {
+            list-style: none;
+            padding: 0;
+            flex-grow: 1;
+        }
+
+        .month-list li {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .month-list li:hover, .month-list li.active {
+            background-color: #A1C6EA;
+            color: white;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            flex-grow: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .tables-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 1.5rem;
+            flex-grow: 1;
+        }
+
+        .table-section {
+            background-color: #ffffff;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            flex-grow: 1;
+        }
+
+        .table-section h3 {
+            margin-bottom: 1rem;
+            color: #323130;
+            text-align: center;
+        }
+
+        .commit-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* 5 squares per row */
+            gap: 5px;
+        }
+
+        .commit-square {
+            width: 100%;
+            padding-bottom: 100%; /* Maintain square aspect ratio */
+            position: relative; /* Allow child positioning */
+            background-color: white;
+            border: 1px solid #e1dfdd;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        .commit-square:hover {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .commit-square span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            color: #323130;
+        }
+
+        /* Send Button Styles */
+        .send-button-container {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .send-button {
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <h2>Months</h2>
+    <ul class="month-list" id="monthList">
+        <!-- Months will be dynamically populated here -->
+    </ul>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+    <div class="tables-container">
+        <!-- Food Table -->
+        <div class="table-section" id="foodSection">
+            <h3>Food</h3>
+            <div class="commit-grid" id="foodGrid">
+                <!-- Squares will be dynamically generated here -->
+            </div>
+        </div>
+
+        <!-- Sport Table -->
+        <div class="table-section" id="sportSection">
+            <h3>Sport</h3>
+            <div class="commit-grid" id="sportGrid">
+                <!-- Squares will be dynamically generated here -->
+            </div>
+        </div>
+
+        <!-- Addiction Table -->
+        <div class="table-section" id="addictionSection">
+            <h3>Addiction</h3>
+            <div class="commit-grid" id="addictionGrid">
+                <!-- Squares will be dynamically generated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Send Button -->
+    <div class="send-button-container" style="text-align: center; margin-top: 2rem;">
+        <button id="sendButton" style="
+        display: inline-block;
+        padding: 10px 20px;
+        font-size: 16px;
+        font-weight: bold;
+        color: white;
+        background-color: #0078D4;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: background-color 0.3s, box-shadow 0.3s;
+    "
+                onmouseover="this.style.backgroundColor='#005A9E'; this.style.boxShadow='0 6px 8px rgba(0, 0, 0, 0.2)';"
+                onmouseout="this.style.backgroundColor='#0078D4'; this.style.boxShadow='0 4px 6px rgba(0, 0, 0, 0.1)';">
+            Send
+        </button>
+    </div>
+
+</div>
+
+<!-- Include Fluent UI2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/@fluentui/web-components@latest/dist/fluentui-web-components.min.js"></script>
+
+<script>
+    // Utility Functions
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
+    function setActiveMonth(element) {
+        document.querySelectorAll('.month-list li').forEach(li => {
+            li.classList.remove('active');
+        });
+        element.classList.add('active');
+    }
+
+    function getCurrentMonthIndex() {
+        const today = new Date();
+        return today.getMonth();
+    }
+
+    function generateMonthList() {
+        const months = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+        const currentIndex = getCurrentMonthIndex();
+        return months.slice(currentIndex).concat(months.slice(0, currentIndex));
+    }
+
+    function getDaysInMonth(month, year) {
+        return new Date(year, month + 1, 0).getDate();
+    }
+
+    function cycleColor(square) {
+        const colorOrder = ['white', '#A1C6EA', '#F4B6C2', '#D3D3D3'];
+        let currentColor = square.getAttribute('data-color') || 'white';
+        let currentIndex = colorOrder.indexOf(currentColor);
+        let nextIndex = (currentIndex + 1) % colorOrder.length;
+        square.style.backgroundColor = colorOrder[nextIndex];
+        square.setAttribute('data-color', colorOrder[nextIndex]);
+    }
+
+    function createSquares(container, days, section) {
+        container.innerHTML = ''; // Clear existing squares
+        for (let i = 0; i < days; i++) {
+            const square = document.createElement('div');
+            square.classList.add('commit-square');
+            square.setAttribute('data-section', section);
+            square.setAttribute('data-day', i);
+
+            const number = document.createElement('span');
+            number.textContent = i + 1; // Display the day number
+            square.appendChild(number);
+
+            square.addEventListener('click', () => cycleColor(square));
+            container.appendChild(square);
+        }
+    }
+
+    async function loadData(month) {
+        const token = getCookie('authToken');
+        if (!token) {
+            alert('Authentication token not found. Please log in again.');
+            window.location.href = 'index.html';
+            return;
+        }
+
+        try {
+            const response = await fetch(`https://streak-worker.streak-counter.workers.dev/data?month=${month}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) throw new Error('Failed to fetch data.');
+
+            const data = await response.json();
+            foodData = data.food || [];
+            sportData = data.sport || [];
+            addictionData = data.addiction || [];
+
+            renderSquares();
+        } catch (error) {
+            console.error(error);
+            alert('An error occurred while fetching data.');
+        }
+    }
+
+    function renderSquares() {
+        foodGrid.childNodes.forEach((square, index) => {
+            const colorIndex = foodData[index];
+            const color = colorIndex !== undefined ? colorOrder[colorIndex] : 'white';
+            square.style.backgroundColor = color;
+            square.setAttribute('data-color', color);
+        });
+
+        sportGrid.childNodes.forEach((square, index) => {
+            const colorIndex = sportData[index];
+            const color = colorIndex !== undefined ? colorOrder[colorIndex] : 'white';
+            square.style.backgroundColor = color;
+            square.setAttribute('data-color', color);
+        });
+
+        addictionGrid.childNodes.forEach((square, index) => {
+            const colorIndex = addictionData[index];
+            const color = colorIndex !== undefined ? colorOrder[colorIndex] : 'white';
+            square.style.backgroundColor = color;
+            square.setAttribute('data-color', color);
+        });
+    }
+
+    async function sendData() {
+        const token = getCookie('authToken');
+        if (!token) {
+            alert('Authentication token not found. Please log in again.');
+            window.location.href = 'index.html';
+            return;
+        }
+
+        const selectedMonth = document.querySelector('.month-list li.active').textContent;
+        const payload = {
+            month: selectedMonth,
+            table1: foodData,
+            table2: sportData,
+            table3: addictionData
+        };
+
+        try {
+            const response = await fetch('https://streak-worker.streak-counter.workers.dev/data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error('Failed to send data.');
+
+            alert('Data sent successfully!');
+        } catch (error) {
+            console.error(error);
+            alert('An error occurred while sending data.');
+        }
+    }
+
+    const monthListElement = document.getElementById('monthList');
+    const foodGrid = document.getElementById('foodGrid');
+    const sportGrid = document.getElementById('sportGrid');
+    const addictionGrid = document.getElementById('addictionGrid');
+    const sendButton = document.getElementById('sendButton');
+    const colorOrder = ['white', '#A1C6EA', '#F4B6C2', '#D3D3D3'];
+    let foodData = [];
+    let sportData = [];
+    let addictionData = [];
+
+    function initMonthList() {
+        const months = generateMonthList();
+        months.forEach((month, index) => {
+            const li = document.createElement('li');
+            li.textContent = month;
+            if (index === 0) li.classList.add('active');
+            li.addEventListener('click', () => {
+                setActiveMonth(li);
+                loadData(month);
+            });
+            monthListElement.appendChild(li);
+        });
+    }
+
+    function initializeGrids(month) {
+        const date = new Date();
+        const monthIndex = new Date(`${month} 1, ${date.getFullYear()}`).getMonth();
+        const year = date.getFullYear();
+        const days = getDaysInMonth(monthIndex, year);
+
+        createSquares(foodGrid, days, 'food');
+        createSquares(sportGrid, days, 'sport');
+        createSquares(addictionGrid, days, 'addiction');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initMonthList();
+
+        const activeMonth = document.querySelector('.month-list li.active').textContent;
+        initializeGrids(activeMonth);
+        loadData(activeMonth);
+
+        sendButton.addEventListener('click', sendData);
+    });
+</script>
+</body>
+</html>

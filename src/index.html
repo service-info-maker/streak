@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login Form</title>
+    <!-- Include Fluent UI2 CSS -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@fluentui/web-components@latest/dist/fluentui-web-components.min.css">
+    <!-- Optionally include Fluent UI Icons -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@fluentui/web-components@latest/dist/fluentui-web-components-icons.min.css">
+    <style>
+        /* Custom Styles for Centering and Minimalist Design */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f3f2f1;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+
+        .login-container h2 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #323130;
+        }
+
+        .fluentui-input {
+            margin-bottom: 1rem;
+        }
+
+        .fluentui-button {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-container" style="max-width: 400px; margin: auto; padding: 2rem; background-color: #fff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);">
+    <h2 style="text-align: center; margin-bottom: 1.5rem; font-size: 24px; color: #333;">Login</h2>
+    <form id="loginForm">
+        <div class="fluentui-input" style="margin-bottom: 1rem;">
+            <label for="username" style="display: block; margin-bottom: 0.5rem; font-size: 14px; color: #666;">Username</label>
+            <input type="text" id="username" name="username" required class="fluentui-textbox" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);">
+        </div>
+        <div class="fluentui-input" style="margin-bottom: 1.5rem;">
+            <label for="password" style="display: block; margin-bottom: 0.5rem; font-size: 14px; color: #666;">Password</label>
+            <input type="password" id="password" name="password" required class="fluentui-textbox" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);">
+        </div>
+        <button type="submit" class="fluentui-button" style="width: 100%; padding: 10px; font-size: 16px; font-weight: bold; color: white; background-color: #0078D4; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;">
+            Login
+        </button>
+    </form>
+</div>
+
+
+<!-- Include SHA3 Library -->
+<script src="https://cdn.jsdelivr.net/npm/js-sha3@0.8.0/src/sha3.min.js"></script>
+
+<script>
+    // Function to set a cookie
+    function setCookie(name, value, days) {
+        const d = new Date();
+        d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+        const expires = "expires=" + d.toUTCString();
+        document.cookie = name + "=" + value + ";" + expires + ";path=/";
+    }
+
+    // Handle form submission
+    document.getElementById('loginForm').addEventListener('submit', function (event) {
+        event.preventDefault(); // Prevent form from submitting the default way
+
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        // Concatenate username and password
+        const combined = username + password;
+
+        // Hash the combined string using SHA3
+        const hash = sha3_512(combined); // Using SHA3-512 from js-sha3 library
+
+        try {
+            // Send the login request to the backend
+            const response = fetch('https://streak-worker.streak-counter.workers.dev/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${hash}` // Base64 encoding as a sample
+                },
+            });
+
+            if (response.ok) {
+                alert('Login failed. Please check your username and password.');
+                console.log(hash)
+            }else{
+                setCookie('authToken', hash, 7);
+                window.location.href = 'app.html';
+            }
+
+
+
+        } catch (error) {
+            console.error('Error logging in:', error);
+            alert('An error occurred. Please try again later.');
+        }
+
+        // Store the hash token in a cookie (expires in 7 days)
+
+    });
+</script>
+</body>
+</html>
