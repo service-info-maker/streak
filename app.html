@@ -328,7 +328,7 @@
     }
 
     function cycleColor(square) {
-        const colorOrder = ['white', '#A1C6EA', '#F4B6C2', '#D3D3D3'];
+        const colorOrder = ['white', '#A1C6EA', '#F4B6C2', '#f5c400'];
         let currentColor = square.getAttribute('data-color') || 'white';
         let currentIndex = colorOrder.indexOf(currentColor);
         let nextIndex = (currentIndex + 1) % colorOrder.length;
@@ -464,7 +464,7 @@
     const sportGrid = document.getElementById('sportGrid');
     const addictionGrid = document.getElementById('addictionGrid');
     const sendButton = document.getElementById('sendButton');
-    const colorOrder = ['white', '#A1C6EA', '#F4B6C2', '#D3D3D3'];
+    const colorOrder = ['white', '#A1C6EA', '#F4B6C2', '#f5c400'];
     let foodData = [];
     let sportData = [];
     let addictionData = [];
