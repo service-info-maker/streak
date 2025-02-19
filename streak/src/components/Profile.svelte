@@ -7,57 +7,106 @@
         fluentDivider
     } from "@fluentui/web-components";
 
+    // Register Fluent components
     provideFluentDesignSystem().register(fluentButton(), fluentCard(), fluentDivider());
 
     // --------------------------------
-    //  State for user profile
+    //  State and references
     // --------------------------------
     let username: string = "JHOHN DOE";
     let motivationQuote: string = "Push yourself because no one else is going to do it for you.";
 
+    // Canvas references
+    let pieChartCanvas: HTMLCanvasElement;
+    let lineChartCanvas: HTMLCanvasElement;
+    let weightChartCanvas: HTMLCanvasElement;
+
+    // Misc chart data
+    let pieValue1: number = 30;
+    let pieValue2: number = 50;
+    let pieValue3: number = 20;
+
+    // Streak chart spinner
+    let isLoadingStreak = false;
+
+    // Weight chart spinner
+    let isLoadingWeight = true;
+
+    // Weight array for 12 months
+    let weightData: number[] = new Array(12).fill(0);
+
+    // Vertical labels for streak/weight cards
+    let title1_card2 = "STREAK";
+    let title2_card2 = "CHART";
+
+    let title1_card3 = "WEIGHT";
+    let title2_card3 = "LOSS";
+
     // --------------------------------
-    //  Logout function
+    //  Weight input form
+    // --------------------------------
+    let inputWeight: string = "";
+    let selectedMonth: string = "0"; // default to January
+    const shortMonths = [ "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ];
+
+    // --------------------------------
+    //  Toast notification state
+    // --------------------------------
+    let toastMessage: string = "";
+    let toastAppearance: "success" | "error" = "success";
+    let showToastFlag: boolean = false;
+
+    function showToast(type: "success" | "error", message: string) {
+        toastAppearance = type;
+        toastMessage = message;
+        showToastFlag = true;
+        setTimeout(() => {
+            showToastFlag = false;
+        }, 3000);
+    }
+
+    // --------------------------------
+    //  Worker endpoints
+    // --------------------------------
+    const BASE_URL = "https://streak-worker-v2.streak-counter.workers.dev";
+    const WEIGHT_GET_ENDPOINT = `${BASE_URL}/weight`; // GET to fetch weight array
+    const WEIGHT_UPDATE_ENDPOINT = `${BASE_URL}/weight`; // POST to update weight
+    const LOGIN_ENDPOINT = `${BASE_URL}/login`;
+    const DATA_ENDPOINT = `${BASE_URL}/data`; // For streak chart
+
+    // --------------------------------
+    //  Logout
     // --------------------------------
     function logout() {
-        // Delete the authToken cookie by setting an expiration date in the past.
+        // Expire authToken cookie
         document.cookie = "authToken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/;";
         console.log("Logout clicked: cookie deleted");
         location.reload();
     }
 
     // --------------------------------
-    //  Function to load user profile from Worker
+    //  Load user profile (name, quote) from /login
     // --------------------------------
     async function loadUserProfile() {
-        // Read the authToken (hash) from the cookie
-        const authToken = document.cookie
-            .split("; ")
-            .find((row) => row.startsWith("authToken="))
-            ?.split("=")[1];
-
+        const authToken = getAuthToken();
         if (!authToken) {
-            console.warn("No authToken cookie found. Redirect or handle error.");
+            console.warn("No authToken cookie found.");
             return;
         }
 
         try {
-            // Call /login with "Authorization: Bearer <hash>"
-            const res = await fetch("https://streak-worker-v2.streak-counter.workers.dev/login", {
+            const res = await fetch(LOGIN_ENDPOINT, {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${authToken}`
-                }
+                headers: { Authorization: `Bearer ${authToken}` }
             });
 
             if (res.ok) {
-                // If user found, parse JSON. Example user object:
-                // { name: "Alice", motivational_quote: "...", status: "admin" }
                 const user = await res.json();
-                username = user.name || username; // fallback to the default if missing
+                username = user.name || username;
                 motivationQuote = user.motivational_quote || motivationQuote;
             } else {
                 console.warn("User not found or not authorized:", res.status);
-                // Optionally redirect to a login page
             }
         } catch (error) {
             console.error("Error loading profile:", error);
@@ -65,49 +114,31 @@
     }
 
     // --------------------------------
-    //  Pie Chart values
+    //  Get the auth token from cookies
     // --------------------------------
-    let pieValue1: number = 30;
-    let pieValue2: number = 50;
-    let pieValue3: number = 20;
+    function getAuthToken(): string | undefined {
+        return document.cookie
+            .split("; ")
+            .find((row) => row.startsWith("authToken="))
+            ?.split("=")[1];
+    }
 
     // --------------------------------
-    //  Weight Loss Data
-    // --------------------------------
-    let weightData: number[] = [80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69];
-
-    // --------------------------------
-    //  Canvas references
-    // --------------------------------
-    let pieChartCanvas: HTMLCanvasElement;
-    let lineChartCanvas: HTMLCanvasElement;
-    let weightChartCanvas: HTMLCanvasElement;
-
-    // Card text for the vertical labels
-    let title1_card2 = "STREAK";
-    let title2_card2 = "CHART";
-
-    let title1_card3 = "WEIGHT";
-    let title2_card3 = "LOSS";
-
-    // Spinner for the streak chart
-    let isLoadingStreak = false;
-
-    // --------------------------------
-    //  Pie Chart
+    //  Pie Chart (static example)
     // --------------------------------
     function drawPieChart() {
         if (!pieChartCanvas) return;
-        const ctx = pieChartCanvas.getContext('2d');
+        const ctx = pieChartCanvas.getContext("2d");
         if (!ctx) return;
+
         ctx.clearRect(0, 0, pieChartCanvas.width, pieChartCanvas.height);
 
         const values = [pieValue1, pieValue2, pieValue3];
         const total = values.reduce((sum, val) => sum + val, 0);
         const colors = [
-            'rgba(0, 0, 0, 0.8)',       // Black
-            'rgba(128, 128, 128, 0.8)', // Gray
-            'rgba(241, 196, 15, 0.8)'   // Yellow accent
+            "rgba(0, 0, 0, 0.8)",
+            "rgba(128, 128, 128, 0.8)",
+            "rgba(241, 196, 15, 0.8)"
         ];
         let startAngle = -0.5 * Math.PI;
         const centerX = pieChartCanvas.width / 2;
@@ -122,8 +153,9 @@
             ctx.closePath();
             ctx.fillStyle = colors[i];
             ctx.fill();
+
             // White border
-            ctx.strokeStyle = '#fff';
+            ctx.strokeStyle = "#fff";
             ctx.lineWidth = 2;
             ctx.stroke();
             startAngle += sliceAngle;
@@ -136,6 +168,7 @@
     async function fetchAndDrawStreakChart() {
         isLoadingStreak = true;
 
+        // Example months for the year
         const months: string[] = [
             "January", "February", "March", "April", "May", "June",
             "July", "August", "September", "October", "November", "December"
@@ -145,28 +178,29 @@
         const streakDataAddiction: number[] = new Array(12).fill(0);
 
         const currentYear = new Date().getFullYear().toString();
-        const API_BASE = "https://streak-worker-v2.streak-counter.workers.dev";
+        const authToken = getAuthToken();
+        if (!authToken) {
+            console.warn("No authToken found, cannot load streak data.");
+            isLoadingStreak = false;
+            return;
+        }
 
-        // Retrieve authToken again if needed
-        const AUTH_TOKEN = document.cookie
-            .split('; ')
-            .find(row => row.startsWith('authToken='))
-            ?.split('=')[1];
-
-        for (let i = 0; i < months.length; i++) {
+        // Fetch each month’s data
+        for (let i = 0; i < 12; i++) {
             const month = months[i];
             try {
-                const response = await fetch(`${API_BASE}/data?year=${currentYear}&month=${month}`, {
+                const response = await fetch(`${DATA_ENDPOINT}?year=${currentYear}&month=${month}`, {
                     method: "GET",
-                    headers: { "Authorization": `Bearer ${AUTH_TOKEN}` }
+                    headers: { "Authorization": `Bearer ${authToken}` }
                 });
                 if (response.ok) {
                     const data = await response.json();
+                    // Each field is an array of numbers; sum them
                     streakDataFood[i] = data.food.reduce((sum: number, n: number) => sum + n, 0);
                     streakDataSport[i] = data.sport.reduce((sum: number, n: number) => sum + n, 0);
                     streakDataAddiction[i] = data.addiction.reduce((sum: number, n: number) => sum + n, 0);
                 } else {
-                    console.warn(`Data not found for ${month}. Using default zeros.`);
+                    console.warn(`No data for ${month}. Using zero fallback.`);
                 }
             } catch (error) {
                 console.error(`Error fetching data for ${month}:`, error);
@@ -174,15 +208,16 @@
         }
 
         isLoadingStreak = false;
-        await tick(); // Wait for the DOM to update (canvas is rendered)
+        await tick(); // ensure canvas is in DOM
 
         drawLineChart(streakDataFood, streakDataSport, streakDataAddiction, months);
     }
 
     function drawLineChart(dataFood: number[], dataSport: number[], dataAddiction: number[], months: string[]) {
         if (!lineChartCanvas) return;
-        const ctx = lineChartCanvas.getContext('2d');
+        const ctx = lineChartCanvas.getContext("2d");
         if (!ctx) return;
+
         ctx.clearRect(0, 0, lineChartCanvas.width, lineChartCanvas.height);
 
         const margin = 40;
@@ -198,13 +233,15 @@
         const yMin = 0;
 
         // Axes
-        ctx.strokeStyle = '#000';
+        ctx.strokeStyle = "#000";
         ctx.lineWidth = 1;
+
         // X-axis
         ctx.beginPath();
         ctx.moveTo(margin, height - margin);
         ctx.lineTo(width - margin, height - margin);
         ctx.stroke();
+
         // Y-axis
         ctx.beginPath();
         ctx.moveTo(margin, margin);
@@ -213,9 +250,9 @@
 
         // Colors
         const colors = [
-            'rgba(241, 196, 15, 0.8)',  // Yellow for food
-            'rgba(0, 128, 255, 0.8)',   // Blue for sport
-            'rgba(34, 139, 34, 0.8)'    // Green for addiction
+            "rgba(241, 196, 15, 0.8)", // Yellow for Food
+            "rgba(0, 128, 255, 0.8)",  // Blue for Sport
+            "rgba(34, 139, 34, 0.8)"   // Green for Addiction
         ];
 
         function drawLine(data: number[], color: string) {
@@ -239,19 +276,20 @@
                 const y = height - margin - ((value - yMin) / (yMax - yMin)) * usableHeight;
                 ctx.beginPath();
                 ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = '#000';
+                ctx.fillStyle = "#000";
                 ctx.fill();
             });
         }
 
+        // Draw each line
         drawLine(dataFood, colors[0]);
         drawLine(dataSport, colors[1]);
         drawLine(dataAddiction, colors[2]);
 
         // X-axis labels
-        ctx.fillStyle = '#000';
-        ctx.textAlign = 'center';
-        ctx.font = '10px Arial';
+        ctx.fillStyle = "#000";
+        ctx.textAlign = "center";
+        ctx.font = "10px Arial";
         months.forEach((month, i) => {
             const x = margin + i * xStep;
             const y = height - margin + 15;
@@ -259,20 +297,61 @@
         });
 
         // Y-axis labels
-        ctx.textAlign = 'right';
-        for (let val = yMin; val <= yMax; val += yMax / 4) {
+        ctx.textAlign = "right";
+        for (let val = yMin; val <= yMax; val += (yMax - yMin) / 4) {
             const y = height - margin - ((val - yMin) / (yMax - yMin)) * usableHeight;
             ctx.fillText(Math.round(val).toString(), margin - 5, y + 3);
         }
     }
 
     // --------------------------------
-    //  Weight Loss Chart
+    //  Weight Chart
     // --------------------------------
+    async function fetchWeightData() {
+        isLoadingWeight = true;
+        const authToken = getAuthToken();
+        if (!authToken) {
+            console.warn("No auth token; cannot load weight data.");
+            isLoadingWeight = false;
+            return;
+        }
+
+        try {
+            // GET /weight to retrieve the current array
+            const res = await fetch(WEIGHT_GET_ENDPOINT, {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${authToken}`
+                }
+            });
+            if (!res.ok) {
+                console.warn("Could not fetch weight data. Status:", res.status);
+                isLoadingWeight = false;
+                return;
+            }
+
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                weightData = data;
+            } else if (Array.isArray(data.weight)) {
+                weightData = data.weight;
+            } else {
+                console.warn("Weight data is invalid or missing. Using zeros.");
+            }
+        } catch (err) {
+            console.error("Error fetching weight data:", err);
+        }
+
+        isLoadingWeight = false;
+        await tick(); // ensure canvas is mounted
+        drawWeightChart();
+    }
+
     function drawWeightChart() {
         if (!weightChartCanvas) return;
-        const ctx = weightChartCanvas.getContext('2d');
+        const ctx = weightChartCanvas.getContext("2d");
         if (!ctx) return;
+
         ctx.clearRect(0, 0, weightChartCanvas.width, weightChartCanvas.height);
 
         const margin = 40;
@@ -285,68 +364,61 @@
         const xStep = usableWidth / (12 - 1);
 
         // Axes
-        ctx.strokeStyle = '#000';
+        ctx.strokeStyle = "#000";
         ctx.lineWidth = 1;
+
         // X-axis
         ctx.beginPath();
         ctx.moveTo(margin, height - margin);
         ctx.lineTo(width - margin, height - margin);
         ctx.stroke();
+
         // Y-axis
         ctx.beginPath();
         ctx.moveTo(margin, margin);
         ctx.lineTo(margin, height - margin);
         ctx.stroke();
 
-        // Line
+        // Weight line
         ctx.beginPath();
-        let started = false;
         for (let i = 0; i < 12; i++) {
-            const weight = weightData[i];
-            if (weight !== 0) {
-                const x = margin + i * xStep;
-                const y = height - margin - ((weight - yMin) / (yMax - yMin)) * usableHeight;
-                if (!started) {
-                    ctx.moveTo(x, y);
-                    started = true;
-                } else {
-                    ctx.lineTo(x, y);
-                }
+            const w = weightData[i];
+            const x = margin + i * xStep;
+            const y = height - margin - ((w - yMin) / (yMax - yMin)) * usableHeight;
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
             }
         }
-        ctx.strokeStyle = 'rgba(241, 196, 15, 0.8)';
+        ctx.strokeStyle = "rgba(241, 196, 15, 0.8)";
         ctx.lineWidth = 3;
         ctx.stroke();
 
         // Points
         for (let i = 0; i < 12; i++) {
-            const weight = weightData[i];
-            if (weight !== 0) {
-                const x = margin + i * xStep;
-                const y = height - margin - ((weight - yMin) / (yMax - yMin)) * usableHeight;
-                ctx.beginPath();
-                ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = '#000';
-                ctx.fill();
-            }
+            const w = weightData[i];
+            const x = margin + i * xStep;
+            const y = height - margin - ((w - yMin) / (yMax - yMin)) * usableHeight;
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = "#000";
+            ctx.fill();
         }
 
         // X-axis labels
-        ctx.fillStyle = '#000';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        const months = [
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-        ];
+        ctx.fillStyle = "#000";
+        ctx.font = "12px Arial";
+        ctx.textAlign = "center";
         for (let i = 0; i < 12; i++) {
             const x = margin + i * xStep;
             const y = height - margin + 15;
-            ctx.fillText(months[i], x, y);
+            ctx.fillText(shortMonths[i], x, y);
         }
 
         // Y-axis labels
-        ctx.textAlign = 'right';
+        ctx.textAlign = "right";
         for (let w = yMin; w <= yMax; w += 10) {
             const y = height - margin - ((w - yMin) / (yMax - yMin)) * usableHeight;
             ctx.fillText(w.toString(), margin - 5, y + 3);
@@ -354,19 +426,79 @@
     }
 
     // --------------------------------
-    //  onMount: Load user profile, then draw charts
+    //  Update weight
+    // --------------------------------
+    async function updateWeight() {
+        const parsed = parseFloat(inputWeight);
+        if (isNaN(parsed) || parsed <= 40 || parsed > 130) {
+            showToast("error", "Please enter a valid weight between 40 and 130.");
+            return;
+        }
+
+        const authToken = getAuthToken();
+        if (!authToken) {
+            console.warn("No auth token found. Cannot update weight.");
+            showToast("error", "No auth token found.");
+            return;
+        }
+
+        // Update the local weightData array for the selected month
+        let updatedWeightData = [...weightData];
+        const index = parseInt(selectedMonth, 10);
+        updatedWeightData[index] = parsed;
+
+        try {
+            const res = await fetch(WEIGHT_UPDATE_ENDPOINT, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${authToken}`
+                },
+                body: JSON.stringify({ weightData: updatedWeightData })
+            });
+
+            if (!res.ok) {
+                console.warn("Weight update failed. Status:", res.status);
+                showToast("error", "Weight update failed. Please try again.");
+                return;
+            }
+
+            const result = await res.json();
+            // The backend returns { success: true, weight: [...] }
+            if (result.success && Array.isArray(result.weight)) {
+                weightData = result.weight;
+                drawWeightChart();
+                inputWeight = "";
+                showToast("success", "Weight updated successfully!");
+            } else {
+                console.warn("Unexpected response from server:", result);
+                showToast("error", "Unexpected response from server.");
+            }
+        } catch (err) {
+            console.error("Error updating weight:", err);
+            showToast("error", "Error updating weight. Please try again.");
+        }
+    }
+
+    // --------------------------------
+    //  onMount
     // --------------------------------
     onMount(async () => {
-        // 1) Load user profile (name, motivational_quote)
+        // Load basic profile info
         await loadUserProfile();
 
-        // 2) Now that we have the user info, we can draw our charts
+        // Draw the static pie chart
         drawPieChart();
+
+        // Load streak data + draw chart
         fetchAndDrawStreakChart();
-        drawWeightChart();
+
+        // Load weight data + draw chart
+        // (spinner will be displayed until fetchWeightData() finishes)
+        fetchWeightData();
     });
 
-    // Redraw pie chart when the pie inputs change
+    // Re-draw pie chart if its values change
     $: if (pieChartCanvas) {
         drawPieChart();
     }
@@ -503,10 +635,12 @@
         flex: 1;
         position: relative;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
     }
 
+    /* Spinner */
     .spinner {
         border: 4px solid #f3f3f3;
         border-top: 4px solid var(--accent-color);
@@ -519,13 +653,68 @@
         0%   { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
+
+    /* Weight update form */
+    .weight-update-form {
+        margin-top: 16px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .weight-update-form input {
+        max-width: 70px;
+        padding: 4px;
+        font-size: 0.9rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    .weight-update-form select {
+        padding: 4px;
+        font-size: 0.9rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    .weight-update-form button {
+        background-color: var(--accent-color);
+        color: var(--background-color);
+        border: none;
+        border-radius: 4px;
+        padding: 0.4em 0.8em;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    /* Toast styles */
+    .toast {
+        position: fixed;
+        bottom: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 1rem 2rem;
+        border-radius: 4px;
+        color: #fff;
+        font-size: 1rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s ease-in-out;
+        z-index: 1000;
+    }
+    .toast.show {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .toast.success {
+        background-color: #4CAF50;
+    }
+    .toast.error {
+        background-color: #f44336;
+    }
 </style>
 
 <div class="dashboard">
     <!-- Left Sidebar: Profile Card -->
     <div class="sidebar">
         <div class="profile-info">
-            <!-- These are now populated from the KV user record -->
             <h2 style="color:black">{username}</h2>
             <p>"{motivationQuote}"</p>
         </div>
@@ -537,6 +726,45 @@
     <!-- Right Main Area: Charts -->
     <div class="main">
         <div class="charts-container">
+            <!-- Card 3: Weight Loss Tracker -->
+            <fluent-card class="chart-card">
+                <div class="card-content">
+                    <div class="vertical-title-container">
+                        <div class="vertical-title">
+                            {#each Array(Math.max(title1_card3.length, title2_card3.length)) as _, i}
+                                <div class="vertical-title-row">
+                                    <span>{title1_card3[i] || ''}</span>
+                                    <span>{title2_card3[i] || ''}</span>
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        {#if isLoadingWeight}
+                            <div class="spinner"></div>
+                        {:else}
+                            <canvas bind:this={weightChartCanvas} width="600" height="300"></canvas>
+                            <!-- Weight Update Form Below the Chart -->
+                            <div class="weight-update-form">
+                                <input
+                                        type="number"
+                                        placeholder="Weight (kg)"
+                                        bind:value={inputWeight}
+                                        min="1" max="500"
+                                />
+                                <select bind:value={selectedMonth}>
+                                    {#each shortMonths as month, i}
+                                        <option value={i}>{month}</option>
+                                    {/each}
+                                </select>
+                                <button on:click={updateWeight}>
+                                    Update
+                                </button>
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+            </fluent-card>
             <!-- Card 2: Streak Chart -->
             <fluent-card class="chart-card">
                 <div class="card-content">
@@ -560,24 +788,17 @@
                 </div>
             </fluent-card>
 
-            <!-- Card 3: Weight Loss Tracker -->
-            <fluent-card class="chart-card">
-                <div class="card-content">
-                    <div class="vertical-title-container">
-                        <div class="vertical-title">
-                            {#each Array(Math.max(title1_card3.length, title2_card3.length)) as _, i}
-                                <div class="vertical-title-row">
-                                    <span>{title1_card3[i] || ''}</span>
-                                    <span>{title2_card3[i] || ''}</span>
-                                </div>
-                            {/each}
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas bind:this={weightChartCanvas} width="600" height="300"></canvas>
-                    </div>
-                </div>
-            </fluent-card>
+
         </div>
     </div>
 </div>
+
+{#if showToastFlag}
+    <div class="toast {toastAppearance} show">
+        {toastMessage}
+    </div>
+{/if}
+
+
+
+
